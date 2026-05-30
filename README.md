@@ -1,93 +1,165 @@
-# Cloud Drive Mounter
+# cloud_drive_mounter
 
+> Mount cloud drives — **Google Drive, OneDrive, Dropbox, S3, and 70+ other
+> providers** — to a local folder and use them like a normal local disk.
 
+`cloud_mount.py` is a single-file, dependency-free Python CLI that wraps
+[rclone](https://rclone.org). rclone does the heavy lifting (provider OAuth,
+APIs, the FUSE filesystem); this tool adds the ergonomics: adding remotes,
+mounting them in the background with sensible caching, tracking which mounts are
+live, and — most importantly — **unmounting without losing data** by flushing
+pending uploads first.
 
-## Getting started
+---
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Table of contents
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Command reference](#command-reference)
+- [Configuration](#configuration)
+- [How it works](#how-it-works)
+- [Troubleshooting](#troubleshooting)
+- [Project structure](#project-structure)
+- [Documentation](#documentation)
+- [License](#license)
 
-## Add your files
+---
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Features
 
-```
-cd existing_repo
-git remote add origin https://gitlab.supportlab.cloud/alfreddgreat/cloud-drive-mounter.git
-git branch -M main
-git push -uf origin main
-```
+- **Any rclone backend** — Google Drive, OneDrive, Dropbox, S3, Box, pCloud,
+  WebDAV, SFTP, and [70+ more](https://rclone.org/overview/).
+- **Use it like a local disk** — `--vfs-cache-mode=full` by default, so random
+  writes, in-place edits, and re-opening files all work.
+- **Safe unmounts** — waits for in-flight uploads to drain before stopping
+  rclone, so recently written files are never lost.
+- **Background mounts with tracking** — `ls` shows every active mount with PID,
+  uptime, and log path; stale entries from crashed mounts self-heal.
+- **Zero dependencies** — pure Python standard library; nothing to `pip install`.
+- **Flexible** — read-only mounts, sub-folder mounts, custom mount points, and
+  pass-through of any extra `rclone mount` flag.
 
-## Integrate with your tools
+## Requirements
 
-* [Set up project integrations](https://gitlab.supportlab.cloud/alfreddgreat/cloud-drive-mounter/-/settings/integrations)
-
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+| Requirement | Notes |
+|-------------|-------|
+| **rclone**  | The engine. [Install guide](https://rclone.org/install/). |
+| **FUSE**    | `fuse3` on Linux; [macFUSE](https://osxfuse.github.io) on macOS. |
+| **Python**  | 3.9 or newer. Standard library only. |
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+git clone https://gitlab.supportlab.cloud/alfreddgreat/cloud-drive-mounter.git
+cd cloud-drive-mounter
+chmod +x cloud_mount.py
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+# Install rclone + FUSE if you don't have them, e.g. on Arch:
+sudo pacman -S rclone fuse3
+# …or Debian/Ubuntu:
+sudo apt install rclone fuse3
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Optionally put it on your `PATH`:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+ln -s "$PWD/cloud_mount.py" ~/.local/bin/cloud-mount
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## Quick start
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+```bash
+./cloud_mount.py add                 # configure a drive (interactive rclone wizard)
+./cloud_mount.py remotes             # list configured remotes
+./cloud_mount.py mount gdrive        # mount 'gdrive' under ~/CloudMounts/gdrive
+ls ~/CloudMounts/gdrive              # …it's just local files now
+./cloud_mount.py ls                  # show active mounts
+./cloud_mount.py unmount gdrive      # flush pending uploads, then unmount
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+See **[HOW_TO_USE.md](HOW_TO_USE.md)** for a full step-by-step walkthrough
+(including the Google Drive OAuth flow).
+
+## Command reference
+
+```
+cloud_mount.py <command> [options]
+
+  add                       Configure a new remote (interactive rclone wizard).
+  remotes                   List configured remotes.
+  mount <remote> [path]     Mount a remote to a local folder.
+  unmount <remote|path>     Unmount a remote (use --all for everything).
+  ls | status               Show active mounts.
+```
+
+### `mount` options
+
+| Option | Description |
+|--------|-------------|
+| `[mountpoint]`        | Local folder (default: `~/CloudMounts/<remote>`). |
+| `--subpath PATH`      | Mount only a sub-folder of the remote. |
+| `--cache-mode MODE`   | `off` \| `minimal` \| `writes` \| `full` (default: `full`). |
+| `--read-only`         | Mount read-only. |
+| `--allow-other`       | Let other users access the mount (needs `user_allow_other` in `/etc/fuse.conf`). |
+| `--foreground`        | Run in the foreground instead of as a daemon. |
+| `--timeout SECONDS`   | How long to wait for the mount to appear (default: 20). |
+| *any other flag*      | Forwarded verbatim to `rclone mount`, e.g. `--vfs-cache-max-size 10G`. |
+
+## Configuration
+
+| What | Where |
+|------|-------|
+| Default mount root | `~/CloudMounts/` — override with the `CLOUD_MOUNT_ROOT` env var. |
+| Mount registry     | `~/.local/state/cloud_drive_mounter/mounts.json` |
+| Per-mount logs     | `~/.local/state/cloud_drive_mounter/logs/<remote>.log` |
+| rclone remotes     | `~/.config/rclone/rclone.conf` (managed by `rclone config`). |
+
+## How it works
+
+- **rclone is the engine; this script is orchestration.** Every operation shells
+  out to the `rclone` binary — the script never talks to provider APIs itself.
+- **A mount is a tracked background `rclone mount` process.** On `mount`, the
+  script launches rclone in its own session, waits for the mount point to become
+  active, and records the PID and metadata in the state file.
+- **Writes upload asynchronously** (~5 s after a file is closed) — normal rclone
+  behavior that keeps the mount fast.
+- **Unmount is the load-bearing part.** rclone *discards* queued uploads when
+  signalled, so every mount runs rclone's remote-control API on a per-mount unix
+  socket; `unmount` polls `vfs/stats` and waits for all pending uploads to finish
+  **before** stopping the process. Always unmount via this tool rather than
+  killing rclone by hand.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `rclone is not installed` | Install rclone (see [Requirements](#requirements)). |
+| `FUSE is not available` | Install `fuse3`. |
+| `remote '…' not found` | Run `remotes`; add it with `add`. |
+| Mount times out | Check the log under `~/.local/state/cloud_drive_mounter/logs/`. |
+| New files don't appear in the cloud immediately | Normal — they upload a few seconds after close and flush fully on `unmount`. |
+| Unmount says *busy* | Close anything using the folder (shells, editors, file managers), then retry. |
+
+## Project structure
+
+```
+cloud-drive-mounter/
+├── cloud_mount.py    # the CLI (all the code)
+├── README.md         # this file
+├── HOW_TO_USE.md     # step-by-step usage guide
+├── CHANGES.md        # changelog
+└── CLAUDE.md         # notes for AI coding assistants
+```
+
+## Documentation
+
+- **[HOW_TO_USE.md](HOW_TO_USE.md)** — step-by-step guide, from install to unmount.
+- **[CHANGES.md](CHANGES.md)** — changelog.
+- **[CLAUDE.md](CLAUDE.md)** — architecture notes for future contributors / AI assistants.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Released under the [MIT License](LICENSE).

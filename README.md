@@ -53,7 +53,7 @@ pending uploads first.
 ## Installation
 
 ```bash
-git clone https://gitlab.supportlab.cloud/alfreddgreat/cloud-drive-mounter.git
+git clone https://gitlab.nacino.net/alfreddgreat/cloud-drive-mounter.git
 cd cloud-drive-mounter
 chmod +x cloud_mount.py
 
